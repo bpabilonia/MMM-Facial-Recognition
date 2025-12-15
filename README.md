@@ -161,6 +161,30 @@ sudo systemctl start facial-recognition
 | `showUserImage` | Display profile picture | `true` |
 | `dimOnSleep` | Dim screen in sleep mode | `true` |
 | `sleepDimLevel` | Sleep opacity (0-1) | `0.1` |
+| `debug` | Show debug panel with status info | `false` |
+
+## Debug Mode
+
+Enable debug mode to see real-time status information on your mirror:
+
+```javascript
+{
+    module: "MMM-Facial-Recognition",
+    position: "top_right",
+    config: {
+        debug: true  // Shows debug panel
+    }
+}
+```
+
+The debug panel displays:
+- **Python Script**: Whether the recognition script is running
+- **Profiles Loaded**: Number of registered face profiles
+- **Current State**: Sleeping / Guest / Recognized
+- **Current User**: Name of recognized user
+- **Last Face Seen**: Time since a face was detected
+- **Sleep After**: Configured sleep timeout
+- **Last Update**: Time since last status update
 
 ## Python Script Configuration
 

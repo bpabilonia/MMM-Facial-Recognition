@@ -169,8 +169,11 @@ module.exports = NodeHelper.create({
             this.sendSocketNotification("RECOGNITION_STATUS", {
                 user: null,
                 isKnown: false,
-                sleeping: true,
-                noData: true
+                sleeping: false,
+                noData: true,
+                timeSinceFace: null,
+                profileCount: 0,
+                sleepTimeoutSecs: 300
             });
             return;
         }
@@ -185,12 +188,19 @@ module.exports = NodeHelper.create({
             }
         }
         
+        // Pass through all status info including debug data
         this.sendSocketNotification("RECOGNITION_STATUS", {
             user: status.user,
             isKnown: status.isKnown,
             sleeping: status.sleeping,
             timestamp: status.timestamp,
-            userImage: userImage
+            userImage: userImage,
+            // Debug info from Python
+            timeSinceFace: status.timeSinceFace,
+            profileCount: status.profileCount || 0,
+            profileNames: status.profileNames || [],
+            sleepTimeoutSecs: status.sleepTimeoutSecs || 300,
+            cameraType: status.cameraType || "unknown"
         });
     }
 });

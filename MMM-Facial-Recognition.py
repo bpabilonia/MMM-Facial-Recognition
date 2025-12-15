@@ -168,17 +168,28 @@ def main():
     print(f"[INFO] Sleep timeout: {SLEEP_TIMEOUT} seconds")
     print("-" * 50)
     
+    # Helper to build status with debug info
+    def build_status(user, is_known, sleeping, time_since_face):
+        return {
+            "user": user,
+            "isKnown": is_known,
+            "sleeping": sleeping,
+            "timestamp": time.time(),
+            # Debug info
+            "timeSinceFace": time_since_face,
+            "profileCount": len(known_faces),
+            "profileNames": list(known_faces.keys()),
+            "sleepTimeoutSecs": SLEEP_TIMEOUT,
+            "cameraType": camera_type
+        }
+    
     # Write initial "awake" status so MagicMirror shows guest mode immediately
-    write_status(STATUS_FILE, {
-        "user": "Guest",
-        "isKnown": False,
-        "sleeping": False,
-        "timestamp": time.time()
-    })
+    write_status(STATUS_FILE, build_status("Guest", False, False, 0))
     
     try:
         while True:
             current_time = time.time()
+            time_since_face = current_time - last_face_seen
             
             # Capture frame
             frame = capture_frame(camera, camera_type)
@@ -188,6 +199,7 @@ def main():
             
             if face_detected:
                 last_face_seen = current_time
+                time_since_face = 0
                 
                 # Wake up if sleeping
                 if is_sleeping:
@@ -203,28 +215,28 @@ def main():
                     is_known = recognized_name != "Guest"
                     print(f"[RECOGNIZED] {recognized_name} ({'known' if is_known else 'guest'})")
                     
-                    write_status(STATUS_FILE, {
-                        "user": recognized_name,
-                        "isKnown": is_known,
-                        "sleeping": False,
-                        "timestamp": current_time
-                    })
+                    write_status(STATUS_FILE, build_status(
+                        recognized_name, is_known, False, time_since_face
+                    ))
             
             else:
                 # No face detected - check for sleep timeout
-                time_since_face = current_time - last_face_seen
-                
                 if time_since_face >= SLEEP_TIMEOUT and not is_sleeping:
                     is_sleeping = True
                     current_user = None
                     print(f"[SLEEP] No face for {SLEEP_TIMEOUT}s - entering sleep mode")
                     
-                    write_status(STATUS_FILE, {
-                        "user": None,
-                        "isKnown": False,
-                        "sleeping": True,
-                        "timestamp": current_time
-                    })
+                    write_status(STATUS_FILE, build_status(
+                        None, False, True, time_since_face
+                    ))
+                elif not is_sleeping:
+                    # Still awake but no face - update time since face
+                    write_status(STATUS_FILE, build_status(
+                        current_user or "Guest", 
+                        current_user is not None and current_user != "Guest",
+                        False, 
+                        time_since_face
+                    ))
             
             # Wait before next capture
             time.sleep(FACE_DETECTION_INTERVAL)

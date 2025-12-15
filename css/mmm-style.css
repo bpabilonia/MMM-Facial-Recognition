@@ -11,9 +11,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: 15px;
     font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
     transition: all 0.5s ease;
+    position: relative;
+    overflow: visible;
+    z-index: 1;
 }
 
 .face-recognition-module.left {
@@ -36,11 +39,11 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
     color: rgba(255, 255, 255, 0.6);
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     transition: color 0.3s ease;
 }
 
@@ -84,30 +87,27 @@
 
 .fr-image-container {
     position: relative;
-    margin: 10px 0;
+    margin: 5px 0;
+    line-height: 0;
 }
 
 .fr-profile-image {
-    width: 120px;
-    height: 120px;
+    width: 100px;
+    height: 100px;
     object-fit: cover;
     border-radius: 50%;
-    border: 3px solid rgba(255, 255, 255, 0.2);
-    box-shadow: 
-        0 4px 20px rgba(0, 0, 0, 0.3),
-        inset 0 0 20px rgba(0, 0, 0, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
     transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
     filter: grayscale(70%);
+    display: block;
 }
 
 /* Known user - full color, green border */
 .fr-known .fr-profile-image {
     filter: grayscale(0%);
     border-color: #4ade80;
-    box-shadow: 
-        0 4px 25px rgba(74, 222, 128, 0.3),
-        0 0 40px rgba(74, 222, 128, 0.1);
-    transform: scale(1.05);
+    box-shadow: 0 2px 15px rgba(74, 222, 128, 0.4);
 }
 
 /* Guest - subtle styling */
@@ -140,13 +140,13 @@
    ========================================= */
 
 .fr-message {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 300;
     color: rgba(255, 255, 255, 0.9);
     text-align: center;
-    margin-top: 15px;
+    margin-top: 10px;
     transition: all 0.5s ease;
-    max-width: 250px;
+    max-width: 200px;
 }
 
 .fr-known .fr-message {
@@ -185,17 +185,15 @@
    ========================================= */
 
 .face-recognition-module {
-    animation: moduleEnter 1s ease-out;
+    animation: moduleEnter 0.8s ease-out;
 }
 
 @keyframes moduleEnter {
     from {
         opacity: 0;
-        transform: translateY(-20px);
     }
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
@@ -228,6 +226,65 @@
         height: 150%;
         opacity: 0;
     }
+}
+
+/* =========================================
+   Debug Panel
+   ========================================= */
+
+.fr-debug {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    font-size: 11px;
+    min-width: 180px;
+}
+
+.fr-debug-title {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.fr-debug-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.fr-debug-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.fr-debug-label {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+}
+
+.fr-debug-value {
+    color: rgba(255, 255, 255, 0.9);
+    font-family: "SF Mono", "Monaco", "Consolas", monospace;
+    font-size: 10px;
+}
+
+.fr-debug-value.ok {
+    color: #4ade80;
+}
+
+.fr-debug-value.warn {
+    color: #f59e0b;
+}
+
+.fr-debug-value.error {
+    color: #ef4444;
 }
 
 /* =========================================

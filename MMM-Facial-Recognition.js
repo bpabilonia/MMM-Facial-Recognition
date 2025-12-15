@@ -18,7 +18,8 @@ Module.register("MMM-Facial-Recognition", {
         showUserImage: true,          // Show user profile picture
         showWelcomeMessage: true,     // Show welcome message
         dimOnSleep: true,             // Dim the entire display on sleep
-        sleepDimLevel: 0.1            // Opacity when sleeping (0-1)
+        sleepDimLevel: 0.1,           // Opacity when sleeping (0-1)
+        debug: false                  // Show debug panel with status info
     },
     
     // Module state
@@ -28,12 +29,15 @@ Module.register("MMM-Facial-Recognition", {
     isInitialized: false,
     startupTime: null,
     profiles: [],
+    lastStatus: null,
+    lastStatusTime: null,
     
     // DOM references
     wrapper: null,
     imageElement: null,
     messageElement: null,
     statusElement: null,
+    debugElement: null,
     
     start: function() {
         Log.info("[MMM-Facial-Recognition] Starting module...");
@@ -69,7 +73,11 @@ Module.register("MMM-Facial-Recognition", {
         this.imageElement.className = "fr-profile-image";
         this.imageElement.src = this.file("public/guest.gif");
         this.imageElement.alt = "Profile";
-        this.imageElement.style.width = this.config.width;
+        // Size is controlled by CSS, config.width only applies if explicitly set
+        if (this.config.width && this.config.width !== "200px") {
+            this.imageElement.style.width = this.config.width;
+            this.imageElement.style.height = this.config.width;
+        }
         imageContainer.appendChild(this.imageElement);
         this.wrapper.appendChild(imageContainer);
         
@@ -79,7 +87,93 @@ Module.register("MMM-Facial-Recognition", {
         this.messageElement.textContent = this.config.guestPrompt;
         this.wrapper.appendChild(this.messageElement);
         
+        // Debug panel (if enabled)
+        if (this.config.debug) {
+            this.debugElement = document.createElement("div");
+            this.debugElement.className = "fr-debug";
+            this.debugElement.innerHTML = this.getDebugHTML();
+            this.wrapper.appendChild(this.debugElement);
+        }
+        
         return this.wrapper;
+    },
+    
+    // Escape HTML to prevent XSS from user-controlled data (e.g., profile names)
+    escapeHTML: function(str) {
+        if (str === null || str === undefined) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    },
+    
+    getDebugHTML: function() {
+        const status = this.lastStatus || {};
+        const profileCount = this.profiles.length;
+        const timeSinceStatus = this.lastStatusTime 
+            ? Math.round((Date.now() - this.lastStatusTime) / 1000) 
+            : "—";
+        const pythonStatus = this.lastStatusTime && timeSinceStatus < 5 
+            ? "✓ Running" 
+            : "⚠ No data";
+        const pythonClass = this.lastStatusTime && timeSinceStatus < 5 
+            ? "ok" 
+            : "warn";
+        
+        const state = this.isSleeping 
+            ? "😴 Sleeping" 
+            : (this.isKnown ? "✓ Recognized" : "👤 Guest");
+        
+        const sleepTimeout = status.sleepTimeoutSecs || 300;
+        // Check for null/undefined explicitly so 0 displays as "0s ago"
+        const timeSinceFace = status.timeSinceFace != null
+            ? Math.round(status.timeSinceFace) + "s ago"
+            : "—";
+        
+        // Escape user-controlled values to prevent XSS
+        const safeUser = this.escapeHTML(status.user) || "None";
+        
+        return `
+            <div class="fr-debug-title">🔧 Debug Mode</div>
+            <div class="fr-debug-grid">
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Python Script:</span>
+                    <span class="fr-debug-value ${pythonClass}">${pythonStatus}</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Profiles Loaded:</span>
+                    <span class="fr-debug-value">${profileCount}</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Current State:</span>
+                    <span class="fr-debug-value">${state}</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Current User:</span>
+                    <span class="fr-debug-value">${safeUser}</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Last Face Seen:</span>
+                    <span class="fr-debug-value">${timeSinceFace}</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Sleep After:</span>
+                    <span class="fr-debug-value">${sleepTimeout}s</span>
+                </div>
+                <div class="fr-debug-row">
+                    <span class="fr-debug-label">Last Update:</span>
+                    <span class="fr-debug-value">${timeSinceStatus}s ago</span>
+                </div>
+            </div>
+        `;
+    },
+    
+    updateDebugPanel: function() {
+        if (this.debugElement) {
+            this.debugElement.innerHTML = this.getDebugHTML();
+        }
     },
     
     notificationReceived: function(notification, payload, sender) {
@@ -100,12 +194,17 @@ Module.register("MMM-Facial-Recognition", {
     socketNotificationReceived: function(notification, payload) {
         switch (notification) {
             case "RECOGNITION_STATUS":
+                this.lastStatus = payload;
+                this.lastStatusTime = Date.now();
                 this.handleRecognitionStatus(payload);
                 break;
                 
             case "PROFILES_LIST":
                 this.profiles = payload;
                 Log.info("[MMM-Facial-Recognition] Loaded profiles:", this.profiles);
+                if (this.config.debug) {
+                    this.updateDebugPanel();
+                }
                 break;
         }
     },
@@ -134,14 +233,18 @@ Module.register("MMM-Facial-Recognition", {
         
         if (effectivelySleeping) {
             this.updateUI(null, false);
-            return;
+        } else {
+            // Handle user changes
+            if (status.user !== this.currentUser || status.isKnown !== this.isKnown) {
+                this.currentUser = status.user;
+                this.isKnown = status.isKnown;
+                this.updateUI(status.user, status.isKnown, status.userImage);
+            }
         }
         
-        // Handle user changes
-        if (status.user !== this.currentUser || status.isKnown !== this.isKnown) {
-            this.currentUser = status.user;
-            this.isKnown = status.isKnown;
-            this.updateUI(status.user, status.isKnown, status.userImage);
+        // Update debug panel
+        if (this.config.debug) {
+            this.updateDebugPanel();
         }
     },
     
