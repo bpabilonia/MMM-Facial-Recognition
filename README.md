@@ -37,13 +37,13 @@ npm install
 
 ### Step 2: Install Python Dependencies
 
-Create a virtual environment (required on newer Raspberry Pi OS):
+Create a virtual environment with system site packages (required for picamera2):
 
 ```bash
 cd ~/MagicMirror/modules/MMM-Facial-Recognition
 
-# Create virtual environment
-python3 -m venv venv
+# Create virtual environment WITH system packages (important for camera access)
+python3 -m venv --system-site-packages venv
 
 # Activate it
 source venv/bin/activate
@@ -51,19 +51,67 @@ source venv/bin/activate
 # Install dependencies
 pip install face_recognition numpy
 
-# For Raspberry Pi Camera (Bookworm/newer):
-pip install picamera2
-
-# For Raspberry Pi Camera (Bullseye/older):
-pip install picamera
-
 # For USB webcam (optional fallback):
 pip install opencv-python
 ```
 
-> **Note:** On newer Raspberry Pi OS (Bookworm+), system-wide pip installs are blocked. The virtual environment approach above is the recommended solution.
+> **Important:** The `--system-site-packages` flag is required so the virtual environment can access the system's `libcamera` and `picamera2` modules which are pre-installed on Raspberry Pi OS.
 
-### Step 3: Add to MagicMirror Config
+### Step 3: Enable the Camera (Raspberry Pi)
+
+#### On Raspberry Pi OS Bookworm (newer):
+
+The camera option has been removed from raspi-config. Enable manually:
+
+```bash
+sudo nano /boot/firmware/config.txt
+```
+
+Add at the bottom:
+```
+camera_auto_detect=1
+start_x=1
+gpu_mem=128
+```
+
+Save and reboot:
+```bash
+sudo reboot
+```
+
+#### On Raspberry Pi OS Bullseye (older):
+
+```bash
+sudo raspi-config
+# Navigate to: Interface Options → Camera → Enable
+sudo reboot
+```
+
+### Step 4: Verify Camera is Working
+
+```bash
+# Check camera status
+vcgencmd get_camera
+# Should show: supported=1 detected=1
+
+# Test with Python
+cd ~/MagicMirror/modules/MMM-Facial-Recognition
+source venv/bin/activate
+
+python3 -c "
+from picamera2 import Picamera2
+cam = Picamera2()
+cam.start()
+import time
+time.sleep(2)
+frame = cam.capture_array()
+print(f'SUCCESS! Camera working. Frame: {frame.shape}')
+cam.stop()
+cam.close()
+"
+```
+
+### Step 5: Add to MagicMirror Config
 
 Add to your `config/config.js`:
 
@@ -86,7 +134,7 @@ Add to your `config/config.js`:
 }
 ```
 
-### Step 4: Add Face Profiles
+### Step 6: Add Face Profiles
 
 Place profile images in the `public/` folder with the naming convention:
 
@@ -104,8 +152,30 @@ Examples:
 - Good lighting, no shadows on face
 - One face per image
 - Minimum 200x200 pixels recommended
+- Similar conditions to how the camera will see you
 
-### Step 5: Start the Recognition Script
+#### Take a Profile Photo with the Pi Camera:
+
+```bash
+cd ~/MagicMirror/modules/MMM-Facial-Recognition
+source venv/bin/activate
+
+python3 -c "
+from picamera2 import Picamera2
+import time
+cam = Picamera2()
+cam.start()
+time.sleep(2)
+print('Taking photo in 3 seconds... Look at the camera!')
+time.sleep(3)
+cam.capture_file('public/YourName-id.png')
+print('Photo saved to public/YourName-id.png')
+cam.stop()
+cam.close()
+"
+```
+
+### Step 7: Start the Recognition Script
 
 Run the Python script (recommend using a service or autostart):
 
@@ -117,6 +187,19 @@ source ~/MagicMirror/modules/MMM-Facial-Recognition/venv/bin/activate
 python3 ~/MagicMirror/modules/MMM-Facial-Recognition/MMM-Facial-Recognition.py
 ```
 
+You should see output like:
+```
+==================================================
+MagicMirror² Facial Recognition Module
+==================================================
+[SUCCESS] PiCamera2 initialized
+[INFO] Loaded 1 profile(s): ['Tony']
+[INFO] Starting facial recognition loop...
+--------------------------------------------------
+[RECOGNIZED] Guest (guest)
+[RECOGNIZED] Tony (known)
+```
+
 #### Autostart with systemd (Recommended)
 
 Create a service file:
@@ -125,7 +208,7 @@ Create a service file:
 sudo nano /etc/systemd/system/facial-recognition.service
 ```
 
-Add:
+Add (update username if not `pi`):
 
 ```ini
 [Unit]
@@ -196,7 +279,7 @@ Edit the constants at the top of `MMM-Facial-Recognition.py`:
 
 ```python
 SLEEP_TIMEOUT = 300           # 5 minutes until sleep mode
-FACE_TOLERANCE = 0.6          # Lower = stricter matching
+FACE_TOLERANCE = 0.6          # Lower = stricter matching (0.5-0.7 recommended)
 RECOGNITION_HOLD_TIME = 15    # Seconds before re-checking
 FACE_DETECTION_INTERVAL = 1.0 # Seconds between captures
 ```
@@ -229,24 +312,127 @@ MMM-Facial-Recognition/
 
 ## Troubleshooting
 
-### Camera not detected
-- Ensure camera is enabled: `sudo raspi-config` → Interface Options → Camera
-- For USB cameras, check with: `ls /dev/video*`
+### Camera Not Detected
 
-### No faces recognized
-- Check profile image quality (clear, front-facing, well-lit)
-- Try adjusting `FACE_TOLERANCE` (lower = stricter, higher = more lenient)
-- Verify profile images have proper naming: `Name-id.png`
+**Check camera status:**
+```bash
+vcgencmd get_camera
+# Should show: supported=1 detected=1
+```
 
-### Module not updating
-- Check Python script is running: `systemctl status facial-recognition`
-- View logs: `journalctl -u facial-recognition -f`
-- Verify `status.json` is being updated
+**If `supported=0`:**
+- Edit `/boot/firmware/config.txt` and add:
+  ```
+  camera_auto_detect=1
+  start_x=1
+  gpu_mem=128
+  ```
+- Reboot
 
-### High CPU usage
-- Increase `FACE_DETECTION_INTERVAL` in Python script
-- Increase `pollInterval` in module config
-- Use lower camera resolution
+**If `detected=0`:**
+- Check ribbon cable connection (blue side toward Ethernet port)
+- Try reseating the cable at both ends
+- Power off completely, reseat cable, power on
+
+**Verify I2C communication:**
+```bash
+sudo apt install -y i2c-tools
+sudo i2cdetect -y 10
+# Should show "UU" or "10" at address 10
+```
+
+### libcamera Module Not Found
+
+If you see `ModuleNotFoundError: No module named 'libcamera'`:
+
+```bash
+# Recreate venv with system packages
+cd ~/MagicMirror/modules/MMM-Facial-Recognition
+deactivate
+rm -rf venv
+python3 -m venv --system-site-packages venv
+source venv/bin/activate
+pip install face_recognition numpy
+```
+
+### Face Detected but Not Recognized
+
+If you see `[RECOGNIZED] Guest (guest)` when it should recognize you:
+
+1. **Check lighting** - Face should be well-lit, not backlit
+2. **Face the camera directly** - Look straight at the camera
+3. **Adjust tolerance** - Edit `MMM-Facial-Recognition.py`:
+   ```python
+   FACE_TOLERANCE = 0.7  # Increase for more lenient matching
+   ```
+4. **Take a new profile photo** - Use the camera to capture your face in similar conditions
+
+### Module Not Updating
+
+```bash
+# Check Python script is running
+systemctl status facial-recognition
+
+# View logs
+journalctl -u facial-recognition -f
+
+# Check status file is updating
+watch -n 1 cat ~/MagicMirror/modules/MMM-Facial-Recognition/status.json
+```
+
+### High CPU Usage
+
+- Increase `FACE_DETECTION_INTERVAL` in Python script (e.g., `2.0`)
+- Increase `pollInterval` in module config (e.g., `2000`)
+
+### Camera Works but No Video Devices
+
+Install libcamera tools:
+```bash
+sudo apt update
+sudo apt install -y libcamera-apps
+```
+
+## Testing the Camera
+
+### Quick Camera Test
+
+```bash
+cd ~/MagicMirror/modules/MMM-Facial-Recognition
+source venv/bin/activate
+
+python3 -c "
+from picamera2 import Picamera2
+import face_recognition
+import time
+
+print('Starting camera...')
+cam = Picamera2()
+cam.start()
+time.sleep(2)
+
+print('Capturing frame...')
+frame = cam.capture_array()
+frame_rgb = frame[:, :, :3][:, :, ::-1]  # Convert to RGB
+
+print('Looking for faces...')
+faces = face_recognition.face_locations(frame_rgb)
+print(f'Found {len(faces)} face(s)!')
+
+cam.stop()
+cam.close()
+"
+```
+
+### Test Profile Matching
+
+```bash
+python3 MMM-Facial-Recognition.py
+```
+
+Stand in front of the camera. You should see:
+- `[RECOGNIZED] Guest (guest)` - Face detected but not matched
+- `[RECOGNIZED] Tony (known)` - Face matched to profile!
 
 ## Contributing
 

@@ -223,13 +223,20 @@ def main():
                 last_face_seen = current_time
                 time_since_face = 0
                 
-                # Wake up if sleeping
+                # Wake up if sleeping - always write status immediately
                 if is_sleeping:
                     is_sleeping = False
-                    print("[INFO] Face detected - waking up display")
+                    current_user = recognized_name
+                    last_recognition_time = current_time
+                    is_known = recognized_name != "Guest"
+                    print(f"[WAKE] Face detected - waking up! User: {recognized_name}")
+                    
+                    write_status(STATUS_FILE, build_status(
+                        recognized_name, is_known, False, time_since_face
+                    ))
                 
-                # Update user if changed or enough time has passed
-                if (recognized_name != current_user or 
+                # Update user if changed or enough time has passed (when not waking)
+                elif (recognized_name != current_user or 
                     current_time - last_recognition_time > RECOGNITION_HOLD_TIME):
                     current_user = recognized_name
                     last_recognition_time = current_time
