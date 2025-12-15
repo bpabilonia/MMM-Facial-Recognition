@@ -1,0 +1,261 @@
+/**
+ * MMM-Facial-Recognition Styles
+ * Modern, animated styling for facial recognition module
+ */
+
+/* =========================================
+   Module Container
+   ========================================= */
+
+.face-recognition-module {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
+    transition: all 0.5s ease;
+}
+
+.face-recognition-module.left {
+    align-items: flex-start;
+}
+
+.face-recognition-module.center {
+    align-items: center;
+}
+
+.face-recognition-module.right {
+    align-items: flex-end;
+}
+
+/* =========================================
+   Status Indicator
+   ========================================= */
+
+.fr-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 15px;
+    transition: color 0.3s ease;
+}
+
+.fr-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    animation: pulse 2s infinite;
+}
+
+.fr-status-dot.active {
+    background: #4ade80;
+    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+}
+
+.fr-status-dot.sleeping {
+    background: #f59e0b;
+    animation: sleepPulse 3s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+@keyframes sleepPulse {
+    0%, 100% { 
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 1;
+        transform: scale(1.2);
+    }
+}
+
+/* =========================================
+   Profile Image
+   ========================================= */
+
+.fr-image-container {
+    position: relative;
+    margin: 10px 0;
+}
+
+.fr-profile-image {
+    width: 120px;
+    height: 120px;
+    object-fit: cover;
+    border-radius: 50%;
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.3),
+        inset 0 0 20px rgba(0, 0, 0, 0.1);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    filter: grayscale(70%);
+}
+
+/* Known user - full color, green border */
+.fr-known .fr-profile-image {
+    filter: grayscale(0%);
+    border-color: #4ade80;
+    box-shadow: 
+        0 4px 25px rgba(74, 222, 128, 0.3),
+        0 0 40px rgba(74, 222, 128, 0.1);
+    transform: scale(1.05);
+}
+
+/* Guest - subtle styling */
+.fr-guest .fr-profile-image {
+    filter: grayscale(80%);
+    border-color: rgba(255, 255, 255, 0.3);
+    opacity: 0.8;
+}
+
+/* Sleeping - dimmed, pulse animation */
+.fr-sleeping .fr-profile-image {
+    filter: grayscale(100%) brightness(0.5);
+    border-color: rgba(245, 158, 11, 0.3);
+    animation: sleepBreathing 4s infinite ease-in-out;
+}
+
+@keyframes sleepBreathing {
+    0%, 100% { 
+        opacity: 0.3;
+        transform: scale(0.95);
+    }
+    50% { 
+        opacity: 0.5;
+        transform: scale(1);
+    }
+}
+
+/* =========================================
+   Welcome Message
+   ========================================= */
+
+.fr-message {
+    font-size: 18px;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.9);
+    text-align: center;
+    margin-top: 15px;
+    transition: all 0.5s ease;
+    max-width: 250px;
+}
+
+.fr-known .fr-message {
+    color: #fff;
+    font-weight: 400;
+    text-shadow: 0 0 20px rgba(74, 222, 128, 0.3);
+}
+
+.fr-guest .fr-message {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.fr-sleeping .fr-message {
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 14px;
+}
+
+/* =========================================
+   State Transitions
+   ========================================= */
+
+.face-recognition-module.fr-sleeping {
+    opacity: 0.5;
+}
+
+.face-recognition-module.fr-known {
+    opacity: 1;
+}
+
+.face-recognition-module.fr-guest {
+    opacity: 0.85;
+}
+
+/* =========================================
+   Entrance Animation
+   ========================================= */
+
+.face-recognition-module {
+    animation: moduleEnter 1s ease-out;
+}
+
+@keyframes moduleEnter {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* =========================================
+   Recognition Animation (when user detected)
+   ========================================= */
+
+.fr-known .fr-image-container::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 2px solid #4ade80;
+    transform: translate(-50%, -50%);
+    animation: recognitionRipple 1.5s ease-out forwards;
+    pointer-events: none;
+}
+
+@keyframes recognitionRipple {
+    from {
+        width: 100%;
+        height: 100%;
+        opacity: 1;
+    }
+    to {
+        width: 150%;
+        height: 150%;
+        opacity: 0;
+    }
+}
+
+/* =========================================
+   Legacy Support (backward compatibility)
+   ========================================= */
+
+.face-image {
+    width: 200px;
+    height: auto;
+}
+
+.face-image img {
+    width: 70%;
+    height: auto;
+    border: 1px solid #DDDDDD;
+    border-radius: 20%;
+    padding: 4px;
+    filter: grayscale(80%);
+}
+
+.face-image.left {
+    margin: 0 auto 0 0;
+}
+
+.face-image.center {
+    margin: 0 auto;
+}
+
+.face-image.right {
+    margin: 0 0 0 auto;
+}
