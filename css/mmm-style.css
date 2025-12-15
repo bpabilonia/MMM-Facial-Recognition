@@ -11,12 +11,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 15px;
+    padding: 10px 15px;
+    margin-top: 10px;
     font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
-    transition: all 0.5s ease;
-    position: relative;
-    overflow: visible;
-    z-index: 1;
+    transition: opacity 0.5s ease;
+    clear: both;
+    box-sizing: border-box;
 }
 
 .face-recognition-module.left {
@@ -71,14 +71,8 @@
 }
 
 @keyframes sleepPulse {
-    0%, 100% { 
-        opacity: 0.3;
-        transform: scale(1);
-    }
-    50% { 
-        opacity: 1;
-        transform: scale(1.2);
-    }
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
 }
 
 /* =========================================
@@ -89,6 +83,8 @@
     position: relative;
     margin: 5px 0;
     line-height: 0;
+    width: 100px;
+    height: 100px;
 }
 
 .fr-profile-image {
@@ -98,9 +94,10 @@
     border-radius: 50%;
     border: 2px solid rgba(255, 255, 255, 0.2);
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: opacity 0.5s ease, filter 0.5s ease, border-color 0.5s ease;
     filter: grayscale(70%);
     display: block;
+    position: static;
 }
 
 /* Known user - full color, green border */
@@ -117,22 +114,11 @@
     opacity: 0.8;
 }
 
-/* Sleeping - dimmed, subtle pulse animation */
+/* Sleeping - dimmed styling */
 .fr-sleeping .fr-profile-image {
     filter: grayscale(100%) brightness(0.6);
     border-color: rgba(245, 158, 11, 0.4);
-    animation: sleepBreathing 4s infinite ease-in-out;
-}
-
-@keyframes sleepBreathing {
-    0%, 100% { 
-        opacity: 0.7;
-        transform: scale(0.98);
-    }
-    50% { 
-        opacity: 0.9;
-        transform: scale(1);
-    }
+    opacity: 0.7;
 }
 
 /* =========================================
@@ -201,32 +187,7 @@
    Recognition Animation (when user detected)
    ========================================= */
 
-.fr-known .fr-image-container::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    border: 2px solid #4ade80;
-    transform: translate(-50%, -50%);
-    animation: recognitionRipple 1.5s ease-out forwards;
-    pointer-events: none;
-}
-
-@keyframes recognitionRipple {
-    from {
-        width: 100%;
-        height: 100%;
-        opacity: 1;
-    }
-    to {
-        width: 150%;
-        height: 150%;
-        opacity: 0;
-    }
-}
+/* Recognition ripple removed to prevent layout overflow */
 
 /* =========================================
    Debug Panel
