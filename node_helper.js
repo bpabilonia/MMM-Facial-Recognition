@@ -188,6 +188,10 @@ module.exports = NodeHelper.create({
             }
         }
         
+        // Calculate time since last status update as fallback
+        const now = Date.now() / 1000;
+        const statusAge = status.timestamp ? now - status.timestamp : null;
+        
         // Pass through all status info including debug data
         this.sendSocketNotification("RECOGNITION_STATUS", {
             user: status.user,
@@ -195,8 +199,8 @@ module.exports = NodeHelper.create({
             sleeping: status.sleeping,
             timestamp: status.timestamp,
             userImage: userImage,
-            // Debug info from Python
-            timeSinceFace: status.timeSinceFace,
+            // Debug info from Python - use statusAge as fallback if timeSinceFace not set
+            timeSinceFace: status.timeSinceFace != null ? status.timeSinceFace : statusAge,
             profileCount: status.profileCount || 0,
             profileNames: status.profileNames || [],
             sleepTimeoutSecs: status.sleepTimeoutSecs || 300,

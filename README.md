@@ -51,8 +51,12 @@ source venv/bin/activate
 # Install dependencies
 pip install face_recognition numpy
 
-# For Raspberry Pi Camera:
+# For Raspberry Pi Camera (Bookworm/newer):
 pip install picamera2
+
+# For Raspberry Pi Camera (Bullseye/older):
+pip install picamera
+
 # For USB webcam (optional fallback):
 pip install opencv-python
 ```

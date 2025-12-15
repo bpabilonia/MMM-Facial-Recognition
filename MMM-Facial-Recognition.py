@@ -66,18 +66,33 @@ def write_status(status_file, data):
 
 def initialize_camera():
     """Initialize the Raspberry Pi camera."""
+    # Try picamera2 first (for newer Raspberry Pi OS Bookworm+)
+    try:
+        from picamera2 import Picamera2
+        camera = Picamera2()
+        config = camera.create_still_configuration(main={"size": CAMERA_RESOLUTION})
+        camera.configure(config)
+        camera.start()
+        print("[SUCCESS] PiCamera2 initialized")
+        return camera, "picamera2"
+    except ImportError:
+        print("[INFO] PiCamera2 not available, trying legacy PiCamera...")
+    except Exception as e:
+        print(f"[WARNING] PiCamera2 failed: {e}, trying legacy PiCamera...")
+    
+    # Try legacy picamera (for older Raspberry Pi OS)
     try:
         import picamera
         camera = picamera.PiCamera()
         camera.resolution = CAMERA_RESOLUTION
-        print("[SUCCESS] PiCamera initialized")
+        print("[SUCCESS] Legacy PiCamera initialized")
         return camera, "picamera"
     except ImportError:
-        print("[INFO] PiCamera not available, trying OpenCV...")
+        print("[INFO] Legacy PiCamera not available, trying OpenCV...")
     except Exception as e:
-        print(f"[WARNING] PiCamera failed: {e}, trying OpenCV...")
+        print(f"[WARNING] Legacy PiCamera failed: {e}, trying OpenCV...")
     
-    # Fallback to OpenCV for non-RPi systems
+    # Fallback to OpenCV for USB cameras or non-RPi systems
     try:
         import cv2
         camera = cv2.VideoCapture(0)
@@ -95,16 +110,23 @@ def initialize_camera():
 
 def capture_frame(camera, camera_type):
     """Capture a single frame from the camera."""
-    if camera_type == "picamera":
-        output = np.empty((CAMERA_RESOLUTION[1], CAMERA_RESOLUTION[0], 3), dtype=np.uint8)
-        camera.capture(output, format="rgb")
-        return output
-    elif camera_type == "opencv":
-        import cv2
-        ret, frame = camera.read()
-        if ret:
-            # Convert BGR to RGB
-            return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    try:
+        if camera_type == "picamera2":
+            # Picamera2 returns RGB by default
+            frame = camera.capture_array()
+            return frame
+        elif camera_type == "picamera":
+            output = np.empty((CAMERA_RESOLUTION[1], CAMERA_RESOLUTION[0], 3), dtype=np.uint8)
+            camera.capture(output, format="rgb")
+            return output
+        elif camera_type == "opencv":
+            import cv2
+            ret, frame = camera.read()
+            if ret:
+                # Convert BGR to RGB
+                return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    except Exception as e:
+        print(f"[ERROR] Frame capture failed: {e}")
     return None
 
 
@@ -225,11 +247,13 @@ def main():
                     is_sleeping = True
                     current_user = None
                     print(f"[SLEEP] No face for {SLEEP_TIMEOUT}s - entering sleep mode")
-                    
+                
+                # Always update status so debug panel shows current time_since_face
+                if is_sleeping:
                     write_status(STATUS_FILE, build_status(
                         None, False, True, time_since_face
                     ))
-                elif not is_sleeping:
+                else:
                     # Still awake but no face - update time since face
                     write_status(STATUS_FILE, build_status(
                         current_user or "Guest", 
@@ -245,7 +269,10 @@ def main():
         print("\n[INFO] Shutting down...")
     finally:
         # Cleanup
-        if camera_type == "picamera":
+        if camera_type == "picamera2":
+            camera.stop()
+            camera.close()
+        elif camera_type == "picamera":
             camera.close()
         elif camera_type == "opencv":
             camera.release()
