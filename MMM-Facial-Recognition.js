@@ -73,11 +73,9 @@ Module.register("MMM-Facial-Recognition", {
         this.imageElement.className = "fr-profile-image";
         this.imageElement.src = this.file("public/guest.gif");
         this.imageElement.alt = "Profile";
-        // Size is controlled by CSS, config.width only applies if explicitly set
-        if (this.config.width && this.config.width !== "200px") {
-            this.imageElement.style.width = this.config.width;
-            this.imageElement.style.height = this.config.width;
-        }
+        // Set explicit dimensions to prevent layout shift during image load
+        this.imageElement.width = 100;
+        this.imageElement.height = 100;
         imageContainer.appendChild(this.imageElement);
         this.wrapper.appendChild(imageContainer);
         

@@ -7,15 +7,24 @@
    Module Container
    ========================================= */
 
+/* Target MagicMirror's module wrapper to ensure proper stacking */
+.module.MMM-Facial-Recognition {
+    position: static !important;
+    float: none !important;
+    clear: both !important;
+}
+
+.module.MMM-Facial-Recognition .module-content {
+    position: static !important;
+    overflow: visible !important;
+}
+
 .face-recognition-module {
     display: flex;
     flex-direction: column;
     align-items: center;
     padding: 10px 15px;
-    margin-top: 10px;
     font-family: "Roboto Condensed", "Helvetica Neue", sans-serif;
-    transition: opacity 0.5s ease;
-    clear: both;
     box-sizing: border-box;
 }
 
@@ -155,7 +164,7 @@
    ========================================= */
 
 .face-recognition-module.fr-sleeping {
-    opacity: 0.8;
+    opacity: 1;
 }
 
 .face-recognition-module.fr-known {
@@ -163,25 +172,10 @@
 }
 
 .face-recognition-module.fr-guest {
-    opacity: 0.85;
+    opacity: 1;
 }
 
-/* =========================================
-   Entrance Animation
-   ========================================= */
-
-.face-recognition-module {
-    animation: moduleEnter 0.8s ease-out;
-}
-
-@keyframes moduleEnter {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
+/* No entrance animation - prevents layout timing issues */
 
 /* =========================================
    Recognition Animation (when user detected)
