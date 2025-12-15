@@ -1,7 +1,6 @@
 {
   "user": null,
   "isKnown": false,
-  "sleeping": true,
+  "sleeping": false,
   "timestamp": 0
 }
-

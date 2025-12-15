@@ -44,7 +44,7 @@ module.exports = NodeHelper.create({
             const defaultStatus = {
                 user: null,
                 isKnown: false,
-                sleeping: true,
+                sleeping: false,  // Start awake, let Python script manage sleep
                 timestamp: Date.now() / 1000
             };
             

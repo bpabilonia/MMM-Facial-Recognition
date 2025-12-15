@@ -37,13 +37,27 @@ npm install
 
 ### Step 2: Install Python Dependencies
 
+Create a virtual environment (required on newer Raspberry Pi OS):
+
 ```bash
-pip3 install face_recognition numpy
+cd ~/MagicMirror/modules/MMM-Facial-Recognition
+
+# Create virtual environment
+python3 -m venv venv
+
+# Activate it
+source venv/bin/activate
+
+# Install dependencies
+pip install face_recognition numpy
+
 # For Raspberry Pi Camera:
-pip3 install picamera
+pip install picamera2
 # For USB webcam (optional fallback):
-pip3 install opencv-python
+pip install opencv-python
 ```
+
+> **Note:** On newer Raspberry Pi OS (Bookworm+), system-wide pip installs are blocked. The virtual environment approach above is the recommended solution.
 
 ### Step 3: Add to MagicMirror Config
 
@@ -92,6 +106,10 @@ Examples:
 Run the Python script (recommend using a service or autostart):
 
 ```bash
+# Activate virtual environment first
+source ~/MagicMirror/modules/MMM-Facial-Recognition/venv/bin/activate
+
+# Run the script
 python3 ~/MagicMirror/modules/MMM-Facial-Recognition/MMM-Facial-Recognition.py
 ```
 
@@ -114,7 +132,7 @@ After=network.target
 Type=simple
 User=pi
 WorkingDirectory=/home/pi/MagicMirror/modules/MMM-Facial-Recognition
-ExecStart=/usr/bin/python3 /home/pi/MagicMirror/modules/MMM-Facial-Recognition/MMM-Facial-Recognition.py
+ExecStart=/home/pi/MagicMirror/modules/MMM-Facial-Recognition/venv/bin/python3 /home/pi/MagicMirror/modules/MMM-Facial-Recognition/MMM-Facial-Recognition.py
 Restart=always
 RestartSec=10
 

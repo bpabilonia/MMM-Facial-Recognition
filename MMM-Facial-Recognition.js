@@ -25,6 +25,8 @@ Module.register("MMM-Facial-Recognition", {
     currentUser: null,
     isKnown: false,
     isSleeping: false,
+    isInitialized: false,
+    startupTime: null,
     profiles: [],
     
     // DOM references
@@ -35,6 +37,7 @@ Module.register("MMM-Facial-Recognition", {
     
     start: function() {
         Log.info("[MMM-Facial-Recognition] Starting module...");
+        this.startupTime = Date.now();
         
         // Request available profiles from node_helper
         this.sendSocketNotification("GET_PROFILES", {});
@@ -108,13 +111,28 @@ Module.register("MMM-Facial-Recognition", {
     },
     
     handleRecognitionStatus: function(status) {
+        // Grace period: ignore sleep mode for first 30 seconds after startup
+        // This allows the Python script time to start and detect faces
+        const STARTUP_GRACE_PERIOD = 30000; // 30 seconds
+        const timeSinceStartup = Date.now() - this.startupTime;
+        const inGracePeriod = timeSinceStartup < STARTUP_GRACE_PERIOD;
+        
+        // Mark as initialized after first valid status
+        if (!this.isInitialized && !status.noData) {
+            this.isInitialized = true;
+            Log.info("[MMM-Facial-Recognition] Initialized with status:", status);
+        }
+        
+        // During grace period, treat sleeping as awake (show guest mode)
+        const effectivelySleeping = status.sleeping && !inGracePeriod;
+        
         // Handle sleep mode changes
-        if (status.sleeping !== this.isSleeping) {
-            this.isSleeping = status.sleeping;
+        if (effectivelySleeping !== this.isSleeping) {
+            this.isSleeping = effectivelySleeping;
             this.updateSleepState();
         }
         
-        if (status.sleeping) {
+        if (effectivelySleeping) {
             this.updateUI(null, false);
             return;
         }

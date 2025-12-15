@@ -168,6 +168,14 @@ def main():
     print(f"[INFO] Sleep timeout: {SLEEP_TIMEOUT} seconds")
     print("-" * 50)
     
+    # Write initial "awake" status so MagicMirror shows guest mode immediately
+    write_status(STATUS_FILE, {
+        "user": "Guest",
+        "isKnown": False,
+        "sleeping": False,
+        "timestamp": time.time()
+    })
+    
     try:
         while True:
             current_time = time.time()

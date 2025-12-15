@@ -117,20 +117,20 @@
     opacity: 0.8;
 }
 
-/* Sleeping - dimmed, pulse animation */
+/* Sleeping - dimmed, subtle pulse animation */
 .fr-sleeping .fr-profile-image {
-    filter: grayscale(100%) brightness(0.5);
-    border-color: rgba(245, 158, 11, 0.3);
+    filter: grayscale(100%) brightness(0.6);
+    border-color: rgba(245, 158, 11, 0.4);
     animation: sleepBreathing 4s infinite ease-in-out;
 }
 
 @keyframes sleepBreathing {
     0%, 100% { 
-        opacity: 0.3;
-        transform: scale(0.95);
+        opacity: 0.7;
+        transform: scale(0.98);
     }
     50% { 
-        opacity: 0.5;
+        opacity: 0.9;
         transform: scale(1);
     }
 }
@@ -169,7 +169,7 @@
    ========================================= */
 
 .face-recognition-module.fr-sleeping {
-    opacity: 0.5;
+    opacity: 0.8;
 }
 
 .face-recognition-module.fr-known {
