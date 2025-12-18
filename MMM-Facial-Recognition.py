@@ -21,6 +21,7 @@ FACE_DETECTION_INTERVAL = 1.0  # seconds between captures
 SLEEP_TIMEOUT = 300  # 5 minutes in seconds
 FACE_TOLERANCE = 0.6  # Lower = stricter matching (0.6 is default)
 RECOGNITION_HOLD_TIME = 15  # seconds to keep user logged in
+WAKE_CONFIRMATION_TIME = 5  # seconds to keep sending wake signals after waking
 
 
 def load_known_faces(public_path):
@@ -185,6 +186,7 @@ def main():
     current_user = None
     is_sleeping = False
     last_recognition_time = 0
+    last_wake_time = 0  # Track when we last woke up to ensure wake signals are sent
     
     print("\n[INFO] Starting facial recognition loop...")
     print(f"[INFO] Sleep timeout: {SLEEP_TIMEOUT} seconds")
@@ -228,6 +230,7 @@ def main():
                     is_sleeping = False
                     current_user = recognized_name
                     last_recognition_time = current_time
+                    last_wake_time = current_time  # Track wake time
                     is_known = recognized_name != "Guest"
                     print(f"[WAKE] Face detected - waking up! User: {recognized_name}")
                     
@@ -235,7 +238,19 @@ def main():
                         recognized_name, is_known, False, time_since_face
                     ))
                 
-                # Update user if changed or enough time has passed (when not waking)
+                # During wake confirmation period, always write status to ensure
+                # the frontend receives the wake signal (prevents stuck overlay)
+                elif current_time - last_wake_time < WAKE_CONFIRMATION_TIME:
+                    # Update current_user if it changed to maintain consistency
+                    if recognized_name != current_user:
+                        current_user = recognized_name
+                        last_recognition_time = current_time
+                    is_known = recognized_name != "Guest"
+                    write_status(STATUS_FILE, build_status(
+                        recognized_name, is_known, False, time_since_face
+                    ))
+                
+                # Update user if changed or enough time has passed (normal operation)
                 elif (recognized_name != current_user or 
                     current_time - last_recognition_time > RECOGNITION_HOLD_TIME):
                     current_user = recognized_name

@@ -229,6 +229,10 @@ Module.register("MMM-Facial-Recognition", {
             this.updateSleepState();
         }
         
+        // Always sync overlay state to prevent stuck overlay
+        // This catches any edge cases where overlay state gets out of sync
+        this.syncOverlayState();
+        
         if (effectivelySleeping) {
             this.updateUI(null, false);
         } else {
@@ -296,6 +300,36 @@ Module.register("MMM-Facial-Recognition", {
         }
     },
     
+    syncOverlayState: function() {
+        // Ensure overlay state matches current sleep state
+        // This prevents the overlay from getting "stuck" due to race conditions
+        if (!this.config.dimOnSleep) return;
+        
+        const overlay = document.getElementById("fr-sleep-overlay");
+        const overlayExists = overlay !== null && overlay.style.opacity !== "0";
+        
+        if (!this.isSleeping && overlayExists) {
+            // We should be awake but overlay is still visible - force remove it
+            Log.info("[MMM-Facial-Recognition] Forcing overlay removal - sync correction");
+            this.forceRemoveOverlay();
+        } else if (this.isSleeping && !overlayExists) {
+            // We should be sleeping but overlay is missing - add it
+            const mmContainer = document.querySelector(".region-fullscreen-below") ||
+                               document.querySelector("#wrapper") ||
+                               document.body;
+            this.addSleepOverlay(mmContainer);
+        }
+    },
+    
+    forceRemoveOverlay: function() {
+        // Immediately remove the overlay without animation
+        const overlay = document.getElementById("fr-sleep-overlay");
+        if (overlay && overlay.parentNode) {
+            overlay.style.opacity = "0";
+            overlay.parentNode.removeChild(overlay);
+        }
+    },
+    
     addSleepOverlay: function(container) {
         // Check if overlay already exists
         let overlay = document.getElementById("fr-sleep-overlay");
@@ -321,6 +355,11 @@ Module.register("MMM-Facial-Recognition", {
             requestAnimationFrame(() => {
                 overlay.style.opacity = "1";
             });
+        } else if (overlay.style.opacity !== "1") {
+            // Overlay exists but is fading out or invisible - animate it back to visible
+            requestAnimationFrame(() => {
+                overlay.style.opacity = "1";
+            });
         }
     },
     
@@ -331,7 +370,9 @@ Module.register("MMM-Facial-Recognition", {
             overlay.style.opacity = "0";
             
             setTimeout(() => {
-                if (overlay.parentNode) {
+                // Only remove if overlay is still faded out (not re-animated to visible)
+                // This prevents race conditions when quickly transitioning between states
+                if (overlay.parentNode && overlay.style.opacity === "0") {
                     overlay.parentNode.removeChild(overlay);
                 }
             }, this.config.animationSpeed);
