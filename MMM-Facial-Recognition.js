@@ -370,7 +370,9 @@ Module.register("MMM-Facial-Recognition", {
             overlay.style.opacity = "0";
             
             setTimeout(() => {
-                if (overlay.parentNode) {
+                // Only remove if overlay is still faded out (not re-animated to visible)
+                // This prevents race conditions when quickly transitioning between states
+                if (overlay.parentNode && overlay.style.opacity === "0") {
                     overlay.parentNode.removeChild(overlay);
                 }
             }, this.config.animationSpeed);
