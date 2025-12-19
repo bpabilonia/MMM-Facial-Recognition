@@ -18,10 +18,13 @@ PUBLIC_PATH = os.path.join(MODULE_PATH, "public")
 STATUS_FILE = os.path.join(MODULE_PATH, "status.json")
 CAMERA_RESOLUTION = (320, 240)
 FACE_DETECTION_INTERVAL = 1.0  # seconds between captures
+SLEEP_DETECTION_INTERVAL = 0.5  # faster detection during sleep for quicker wake
 SLEEP_TIMEOUT = 300  # 5 minutes in seconds
 FACE_TOLERANCE = 0.6  # Lower = stricter matching (0.6 is default)
 RECOGNITION_HOLD_TIME = 15  # seconds to keep user logged in
 WAKE_CONFIRMATION_TIME = 5  # seconds to keep sending wake signals after waking
+CAMERA_FAILURE_THRESHOLD = 5  # consecutive failures before camera reinit
+SLEEP_LOG_INTERVAL = 30  # seconds between sleep mode log messages
 
 
 def load_known_faces(public_path):
@@ -109,26 +112,66 @@ def initialize_camera():
         return None, None
 
 
-def capture_frame(camera, camera_type):
-    """Capture a single frame from the camera."""
-    try:
-        if camera_type == "picamera2":
-            # Picamera2 returns RGB by default
-            frame = camera.capture_array()
-            return frame
-        elif camera_type == "picamera":
-            output = np.empty((CAMERA_RESOLUTION[1], CAMERA_RESOLUTION[0], 3), dtype=np.uint8)
-            camera.capture(output, format="rgb")
-            return output
-        elif camera_type == "opencv":
-            import cv2
-            ret, frame = camera.read()
-            if ret:
-                # Convert BGR to RGB
-                return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    except Exception as e:
-        print(f"[ERROR] Frame capture failed: {e}")
+def capture_frame(camera, camera_type, retries=2):
+    """Capture a single frame from the camera with retry logic."""
+    for attempt in range(retries + 1):
+        try:
+            if camera_type == "picamera2":
+                # Picamera2 returns RGB by default
+                frame = camera.capture_array()
+                if frame is not None and frame.size > 0:
+                    return frame
+            elif camera_type == "picamera":
+                output = np.empty((CAMERA_RESOLUTION[1], CAMERA_RESOLUTION[0], 3), dtype=np.uint8)
+                camera.capture(output, format="rgb")
+                return output
+            elif camera_type == "opencv":
+                import cv2
+                # Flush stale frames from buffer (helps with USB cameras)
+                for _ in range(2):
+                    camera.grab()
+                ret, frame = camera.read()
+                if ret and frame is not None:
+                    # Convert BGR to RGB
+                    return cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        except Exception as e:
+            if attempt == retries:
+                print(f"[ERROR] Frame capture failed after {retries + 1} attempts: {e}")
+            else:
+                time.sleep(0.1)  # Brief pause before retry
     return None
+
+
+def reinitialize_camera(old_camera, old_camera_type):
+    """Attempt to reinitialize a failed camera."""
+    print("[WARN] Attempting camera reinitialization...")
+    
+    # Close old camera - attempt each cleanup step independently
+    # to ensure resources are fully released even if one step fails
+    if old_camera_type == "picamera2":
+        try:
+            old_camera.stop()
+        except Exception as e:
+            print(f"[WARN] Error stopping camera: {e}")
+        try:
+            old_camera.close()
+        except Exception as e:
+            print(f"[WARN] Error closing camera: {e}")
+    elif old_camera_type == "picamera":
+        try:
+            old_camera.close()
+        except Exception as e:
+            print(f"[WARN] Error closing camera: {e}")
+    elif old_camera_type == "opencv":
+        try:
+            old_camera.release()
+        except Exception as e:
+            print(f"[WARN] Error releasing camera: {e}")
+    
+    time.sleep(1)  # Give camera time to reset
+    
+    # Try to reinitialize
+    return initialize_camera()
 
 
 def recognize_face(frame, known_faces):
@@ -187,9 +230,12 @@ def main():
     is_sleeping = False
     last_recognition_time = 0
     last_wake_time = 0  # Track when we last woke up to ensure wake signals are sent
+    consecutive_failures = 0  # Track camera failures for recovery
+    last_sleep_log = 0  # Track when we last logged sleep status
     
     print("\n[INFO] Starting facial recognition loop...")
     print(f"[INFO] Sleep timeout: {SLEEP_TIMEOUT} seconds")
+    print(f"[INFO] Sleep detection interval: {SLEEP_DETECTION_INTERVAL}s (faster wake)")
     print("-" * 50)
     
     # Helper to build status with debug info
@@ -215,8 +261,26 @@ def main():
             current_time = time.time()
             time_since_face = current_time - last_face_seen
             
-            # Capture frame
-            frame = capture_frame(camera, camera_type)
+            # Capture frame (with extra retries during sleep mode for reliability)
+            retries = 3 if is_sleeping else 2
+            frame = capture_frame(camera, camera_type, retries=retries)
+            
+            # Track camera failures and attempt recovery if needed
+            if frame is None:
+                consecutive_failures += 1
+                if consecutive_failures >= CAMERA_FAILURE_THRESHOLD:
+                    print(f"[ERROR] {consecutive_failures} consecutive camera failures - attempting recovery")
+                    camera, camera_type = reinitialize_camera(camera, camera_type)
+                    consecutive_failures = 0
+                    if camera is None:
+                        print("[FATAL] Camera recovery failed. Waiting 10s before retry...")
+                        time.sleep(10)
+                        camera, camera_type = initialize_camera()
+                        if camera is None:
+                            print("[FATAL] Camera still unavailable. Exiting.")
+                            sys.exit(1)
+            else:
+                consecutive_failures = 0
             
             # Recognize face
             recognized_name, face_detected = recognize_face(frame, known_faces)
@@ -275,6 +339,11 @@ def main():
                     write_status(STATUS_FILE, build_status(
                         None, False, True, time_since_face
                     ))
+                    
+                    # Periodic logging during sleep to confirm script is running
+                    if current_time - last_sleep_log >= SLEEP_LOG_INTERVAL:
+                        last_sleep_log = current_time
+                        print(f"[SLEEP] Still sleeping... waiting for face (camera: {camera_type}, failures: {consecutive_failures})")
                 else:
                     # Still awake but no face - update time since face
                     write_status(STATUS_FILE, build_status(
@@ -284,8 +353,9 @@ def main():
                         time_since_face
                     ))
             
-            # Wait before next capture
-            time.sleep(FACE_DETECTION_INTERVAL)
+            # Use faster detection interval during sleep for quicker wake response
+            detection_interval = SLEEP_DETECTION_INTERVAL if is_sleeping else FACE_DETECTION_INTERVAL
+            time.sleep(detection_interval)
     
     except KeyboardInterrupt:
         print("\n[INFO] Shutting down...")
